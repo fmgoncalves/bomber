@@ -1,0 +1,7 @@
+{
+	"From":"virus.sender@fakedomain.tld",
+	"To":"eicar@fakedomain.tld",
+	"Type": ["virus"],
+	"Headers": ["Subject: Eicar virus message"],
+	"BodyFile":"eicar.body"
+}
