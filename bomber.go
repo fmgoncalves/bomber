@@ -84,25 +84,31 @@ func main() {
 		SAMPLES_DIRECTORY string
 		HOST string
 		CATEGORY string
+		N_SENDERS int
 		N_MESSAGES int
 		THROTTLING float64
 		LIST_ONLY bool
+		RANDOM_SAMPLE_SELECTION bool
 		VERBOSE bool
 	)
 
 	flag.StringVar(&HOST, "s", default_host, "SMTP server to send the message to")
-	//flag.StringVar(&SAMPLES_DIRECTORY, "samples", default_dir, "Directory containing email message samples in JSON")
+
 	samples_dir := os.Getenv("BOMBER_SAMPLES")
 	if len(samples_dir) == 0 {
 		samples_dir = "samples"
 	}
 	flag.StringVar(&SAMPLES_DIRECTORY, "samples", samples_dir, "Directory containing email message samples in JSON")
 	flag.StringVar(&CATEGORY, "c", "all", "Category of messages to send")
-	flag.IntVar(&N_MESSAGES, "n", 100, "Number of message to be sent")
+	flag.IntVar(&N_SENDERS, "j", 1, "Number of message senders in parallel")
+	flag.IntVar(&N_MESSAGES, "n", 1, "Total number of messages to be sent")
 	flag.Float64Var(&THROTTLING, "throttle", 0, "Throttle the message flow (msg/second).")
 	flag.BoolVar(&LIST_ONLY, "l", false, "Only list available categories.")
+	flag.BoolVar(&RANDOM_SAMPLE_SELECTION, "rand", false, "Choose samples randomly during execution.")
 	flag.BoolVar(&VERBOSE, "v", false, "Prints details of execution.")
 	flag.Parse()
+
+	rand.Seed(time.Now().UnixNano())
 
 	l, err := ioutil.ReadDir(SAMPLES_DIRECTORY)
 	die(err)
@@ -148,8 +154,10 @@ func main() {
 
 	pn := runtime.NumCPU()
 	//runtime.GOMAXPROCS(pn)
-	if THROTTLING > 0 {
-		pn = int(THROTTLING)
+	if N_SENDERS > 0 {
+		pn = int(N_SENDERS)
+	} else {
+		pn = 1
 	}
 	if VERBOSE {
 		fmt.Printf("Sending %v messages in batches of %v\n", N_MESSAGES, pn);
@@ -162,16 +170,23 @@ func main() {
 	for i:= 0; i < N_MESSAGES; i++ {
 		<-c
 		go func (j int) {
+			start_time := time.Now()
 			if VERBOSE {
 				fmt.Printf("Sending message #%v\n",j+1)
 			}
-			err := send_sample(HOST, sample_list[rand.Int() % len(sample_list)])
+			var samples_idx int
+			if RANDOM_SAMPLE_SELECTION {
+				samples_idx = rand.Intn(len(sample_list))
+			} else {
+				samples_idx = j % len(sample_list)
+			}
+			err := send_sample(HOST, sample_list[samples_idx])
 			if err != nil {
 					fmt.Printf("Failed to send message #%v: %v\n", j+1, err)
 			}
 			if THROTTLING > 0 {
 				// TODO throttling should consider the running time of send_sample
-				time.Sleep(time.Duration( (float64(pn) /THROTTLING) * 1000.0 * float64(time.Millisecond)))
+				time.Sleep( time.Duration( (float64(pn) /THROTTLING) * float64(time.Second) ) - time.Since(start_time) )
 			}
 			c <- 1
 		}(i)
