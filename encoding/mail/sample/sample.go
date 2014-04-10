@@ -7,6 +7,7 @@ import (
 	"strings"
 	"fmt"
 	"errors"
+	"regexp"
 )
 
 /*
@@ -26,6 +27,7 @@ import (
  */
 
 type MailSample struct {
+	SampleFileName  string
 	Type    		[]string
 	Port			int
 	To      		string
@@ -55,12 +57,12 @@ func (s *MailSample) buildEmail(file_path string) error {
 		if err != nil {
 			return err
 		}
-		data_split := strings.SplitN(string(f), "\n\n", 2)
+		data_split := regexp.MustCompile("\r?\n\r?\n").Split(string(f), 2)
 		if len(data_split) != 2 {
-			return errors.New(fmt.Sprintf("Invalid email file: %v", file_path))
+			return errors.New(fmt.Sprintf("Invalid email file: %v", path.Dir(file_path)+"/"+s.EmailFile))
 		}
 		// parse headers
-		headers_aux := strings.Split(data_split[0], "\n")
+		headers_aux := regexp.MustCompile("\r?\n").Split(data_split[0], -1)
 		headers := make([]string, len(headers_aux))
 		idx := -1
 		for _, val := range headers_aux {
@@ -69,7 +71,7 @@ func (s *MailSample) buildEmail(file_path string) error {
 			} else {
 				headers[idx] += "\r\n"
 			}
-			headers[idx] += strings.TrimRight(val,"\r")
+			headers[idx] += val
 		}
 		headers = headers[0:idx+1]
 		s.Headers = headers
@@ -87,7 +89,7 @@ func (s *MailSample) buildHeaders(file_path string) error {
 		if err != nil {
 			return err
 		}
-		headers_aux := strings.Split(string(f), "\n")
+		headers_aux := regexp.MustCompile("\r?\n").Split(string(f), -1)
 		headers := make([]string, len(headers_aux))
 		idx := -1
 		for _, val := range headers_aux {
@@ -135,5 +137,6 @@ func Unmarshal(file_path string) (MailSample, error){
 	if err := s.buildBody(file_path) ; err != nil {
 		return s, err
 	}
+	s.SampleFileName = path.Base(file_path)
 	return s, nil
 }

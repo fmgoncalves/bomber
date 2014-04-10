@@ -120,21 +120,22 @@ func main() {
 			s, err := sample.Unmarshal(SAMPLES_DIRECTORY+"/"+val.Name())
 			if err != nil {
 				if VERBOSE {
-					fmt.Printf("Failed to load %s sample\n",val.Name())
+					fmt.Printf("Failed to load %s sample: %v\n",val.Name(), err)
 				}
-			}
-			if VERBOSE {
-				fmt.Printf("Loaded %s sample\n",val.Name())
-			}
-			if LIST_ONLY {
-				for _, s_category := range s.Type {
-					asdfg := strings.ToLower(s_category)
-					categories[asdfg] = true
+			} else {
+				if VERBOSE {
+					fmt.Printf("Loaded %s sample\n",val.Name())
 				}
-			}
-			if CATEGORY == "all" || hasCategory(s,CATEGORY) {
-				sample_list[idx] = s
-				idx++
+				if LIST_ONLY {
+					for _, s_category := range s.Type {
+						asdfg := strings.ToLower(s_category)
+						categories[asdfg] = true
+					}
+				}
+				if CATEGORY == "all" || hasCategory(s,CATEGORY) {
+					sample_list[idx] = s
+					idx++
+				}
 			}
 		}
 	}
@@ -182,7 +183,7 @@ func main() {
 			}
 			err := send_sample(HOST, sample_list[samples_idx])
 			if err != nil {
-					fmt.Printf("Failed to send message #%v: %v\n", j+1, err)
+					fmt.Printf("Failed to send message #%v (%v): %v\n", j+1, sample_list[samples_idx].SampleFileName, err)
 			}
 			if THROTTLING > 0 {
 				// TODO throttling should consider the running time of send_sample
